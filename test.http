@@ -1,0 +1,38 @@
+### Verificar servidor
+GET http://127.0.0.1:8000/
+
+### Huésped en español
+POST http://127.0.0.1:8000/chat
+Content-Type: application/json
+
+{
+    "session_id": "huesped_01",
+    "message": "Hola, ¿tienen desayuno incluido?"
+}
+
+### Huésped en inglés
+POST http://127.0.0.1:8000/chat
+Content-Type: application/json
+
+{
+    "session_id": "huesped_02",
+    "message": "What time does the pool close?"
+}
+
+### Huésped en portugués
+POST http://127.0.0.1:8000/chat
+Content-Type: application/json
+
+{
+    "session_id": "huesped_03",
+    "message": "Você tem estacionamento?"
+}
+
+### Prueba con URL pública de ngrok
+POST https://nonirrevocable-margarett-fishily.ngrok-free.dev/chat
+Content-Type: application/json
+
+{
+    "session_id": "huesped_externo",
+    "message": "Hola, ¿cuánto cuesta la habitación doble?"
+}
