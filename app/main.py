@@ -143,4 +143,99 @@ def ver_conversaciones():
         ]
     finally:
         db.close()
+@app.get("/dashboard")
+def dashboard():
+    from app.database import SessionLocal, Conversacion
+    from sqlalchemy import func
+    db = SessionLocal()
+    try:
+        total = db.query(Conversacion).count()
+        handoffs = db.query(Conversacion).filter(Conversacion.fue_handoff == True).count()
+        automaticas = total - handoffs
+        idiomas = db.query(Conversacion.idioma, func.count(Conversacion.idioma)).group_by(Conversacion.idioma).all()
+
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Hotel Sunrise - Dashboard</title>
+            <style>
+                body {{ font-family: Arial; padding: 30px; background: #f5f5f5; }}
+                h1 {{ color: #1a1a2e; }}
+                .cards {{ display: flex; gap: 20px; margin: 20px 0; flex-wrap: wrap; }}
+                .card {{ background: white; padding: 24px; border-radius: 12px; min-width: 160px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }}
+                .card h2 {{ margin: 0; font-size: 36px; color: #2563eb; }}
+                .card p {{ margin: 4px 0 0; color: #666; font-size: 14px; }}
+                .card.handoff h2 {{ color: #f59e0b; }}
+                .card.auto h2 {{ color: #10b981; }}
+                table {{ width: 100%; background: white; border-radius: 12px; border-collapse: collapse; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }}
+                th {{ background: #2563eb; color: white; padding: 12px 16px; text-align: left; }}
+                td {{ padding: 10px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }}
+                tr:last-child td {{ border-bottom: none; }}
+                .badge {{ padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }}
+                .si {{ background: #fef3c7; color: #d97706; }}
+                .no {{ background: #d1fae5; color: #059669; }}
+            </style>
+        </head>
+        <body>
+            <h1>🏨 Hotel Sunrise — Dashboard</h1>
+
+            <div class="cards">
+                <div class="card">
+                    <h2>{total}</h2>
+                    <p>Total conversaciones</p>
+                </div>
+                <div class="card auto">
+                    <h2>{automaticas}</h2>
+                    <p>Resueltas por el bot</p>
+                </div>
+                <div class="card handoff">
+                    <h2>{handoffs}</h2>
+                    <p>Escaladas al recepcionista</p>
+                </div>
+                <div class="card">
+                    <h2>{round((automaticas/total*100) if total > 0 else 0)}%</h2>
+                    <p>Tasa de resolución automática</p>
+                </div>
+            </div>
+
+            <h2>Idiomas detectados</h2>
+            <div class="cards">
+                {"".join(f'<div class="card"><h2>{c}</h2><p>{i}</p></div>' for i, c in idiomas)}
+            </div>
+
+            <h2>Últimas conversaciones</h2>
+            <table>
+                <tr>
+                    <th>Teléfono</th>
+                    <th>Idioma</th>
+                    <th>Mensaje</th>
+                    <th>Respuesta</th>
+                    <th>Handoff</th>
+                    <th>Fecha</th>
+                </tr>
+        """
+
+        conversaciones = db.query(Conversacion).order_by(Conversacion.fecha.desc()).limit(20).all()
+        for c in conversaciones:
+            handoff_badge = '<span class="badge si">Sí</span>' if c.fue_handoff else '<span class="badge no">No</span>'
+            html += f"""
+                <tr>
+                    <td>+{c.telefono}</td>
+                    <td>{c.idioma}</td>
+                    <td>{c.mensaje[:50]}...</td>
+                    <td>{c.respuesta[:60]}...</td>
+                    <td>{handoff_badge}</td>
+                    <td>{str(c.fecha)[:16]}</td>
+                </tr>
+            """
+
+        html += """
+            </table>
+        </body>
+        </html>
+        """
+        return __import__('fastapi').responses.HTMLResponse(content=html)
+    finally:
+        db.close()
     return {"status": "ok"}
