@@ -3,10 +3,16 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from app.bot import chat
 from app.config import WHATSAPP_TOKEN, VERIFY_TOKEN, RECEPTIONIST_NUMBER
+from app.database import init_db, guardar_conversacion
 import httpx
 from datetime import datetime
+import langdetect
 
-app = FastAPI(title="Hotel Mirador Ilo - Bot")
+app = FastAPI(title="Hotel Sunrise - Bot")
+
+@app.on_event("startup")
+def startup():
+    init_db()
 
 class MessageRequest(BaseModel):
     session_id: str
@@ -20,7 +26,7 @@ class MessageResponse(BaseModel):
 def root():
     return {
         "status": "activo",
-        "hotel": "Hotel Mirador Ilo",
+        "hotel": "Hotel Sunrise",
         "version": "1.0"
     }
 
@@ -76,26 +82,44 @@ async def receive_message(request: Request):
         phone_id = value["metadata"]["phone_number_id"]
         hora = datetime.now().strftime("%I:%M %p")
 
+        try:
+            idioma = langdetect.detect(text)
+        except:
+            idioma = "desconocido"
+
         print(f"TELEFONO: {phone}")
+        print(f"IDIOMA: {idioma}")
         print(f"MENSAJE: {text}")
 
         reply = chat(session_id=phone, message=text)
         print(f"RESPUESTA BOT: {reply}")
 
-        if "##HANDOFF##" in reply:
+        fue_handoff = "##HANDOFF##" in reply
+
+        if fue_handoff:
             reply_clean = reply.replace("##HANDOFF##", "").strip()
             await send_whatsapp(phone_id, phone, reply_clean)
 
             notificacion = (
                 f"🔔 PEDIDO NUEVO\n"
                 f"👤 Huésped: +{phone}\n"
+                f"🌐 Idioma: {idioma}\n"
                 f"📋 Pedido: {text}\n"
                 f"🕐 Hora: {hora}\n"
                 f"💬 Respuesta enviada: {reply_clean}"
             )
             await send_whatsapp(phone_id, RECEPTIONIST_NUMBER, notificacion)
         else:
+            reply_clean = reply
             await send_whatsapp(phone_id, phone, reply)
+
+        guardar_conversacion(
+            telefono=phone,
+            idioma=idioma,
+            mensaje=text,
+            respuesta=reply_clean,
+            fue_handoff=fue_handoff
+        )
 
     except Exception as e:
         print(f"ERROR: {e}")
