@@ -83,7 +83,9 @@ async def receive_message(request: Request):
         hora = datetime.now().strftime("%I:%M %p")
 
         try:
-            idioma = langdetect.detect(text)
+            idioma = langdetect.detect(text) if len(text) > 15 else "texto corto"
+            if idioma == "unknown":
+                idioma = "desconocido"
         except:
             idioma = "desconocido"
 
