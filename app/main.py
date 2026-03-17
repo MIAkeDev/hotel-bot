@@ -123,5 +123,24 @@ async def receive_message(request: Request):
 
     except Exception as e:
         print(f"ERROR: {e}")
-
+@app.get("/conversaciones")
+def ver_conversaciones():
+    from app.database import SessionLocal, Conversacion
+    db = SessionLocal()
+    try:
+        conversaciones = db.query(Conversacion).order_by(Conversacion.fecha.desc()).all()
+        return [
+            {
+                "id": c.id,
+                "telefono": c.telefono,
+                "idioma": c.idioma,
+                "mensaje": c.mensaje,
+                "respuesta": c.respuesta,
+                "fue_handoff": c.fue_handoff,
+                "fecha": str(c.fecha)
+            }
+            for c in conversaciones
+        ]
+    finally:
+        db.close()
     return {"status": "ok"}
