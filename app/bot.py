@@ -53,14 +53,24 @@ ayudar con temas del Hotel Mirador Ilo.
 """
 
 sessions: dict[str, list] = {}
+idiomas: dict[str, str] = {}
 
-def chat(session_id: str, message: str) -> str:
+def chat(session_id: str, message: str, contexto_rag: str = "") -> str:
     if session_id not in sessions:
         sessions[session_id] = []
 
+    prompt_con_contexto = message
+    if contexto_rag:
+        prompt_con_contexto = f"""El huésped pregunta: {message}
+
+Información relevante encontrada:
+{contexto_rag}
+
+Usa esta información para responder."""
+
     sessions[session_id].append({
         "role": "user",
-        "content": message
+        "content": prompt_con_contexto
     })
 
     response = client.chat.completions.create(

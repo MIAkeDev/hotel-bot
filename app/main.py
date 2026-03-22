@@ -7,12 +7,14 @@ from app.database import init_db, guardar_conversacion
 import httpx
 from datetime import datetime
 import langdetect
+from app.rag import init_rag, agregar_conocimiento, buscar_conocimiento
 
 app = FastAPI(title="Hotel Sunrise - Bot")
 
 @app.on_event("startup")
 def startup():
     init_db()
+    init_rag()
 
 class MessageRequest(BaseModel):
     session_id: str
@@ -91,9 +93,15 @@ async def receive_message(request: Request):
         print(f"IDIOMA: {idioma}")
         print(f"MENSAJE: {text}")
 
-        reply = chat(session_id=phone, message=text)
-        print(f"RESPUESTA BOT: {reply}")
+        resultados_rag = buscar_conocimiento(text)
+        contexto_rag = ""
+        if resultados_rag and resultados_rag[0]["similitud"] > 0.3:
+            contexto_rag = "\n".join([
+                f"- {r['titulo']}: {r['contenido']}"
+                for r in resultados_rag
+            ])
 
+        reply = chat(session_id=phone, message=text, contexto_rag=contexto_rag)
         fue_handoff = "##HANDOFF##" in reply
 
         if fue_handoff:
@@ -239,3 +247,12 @@ def dashboard():
     finally:
         db.close()
     return {"status": "ok"}
+@app.post("/conocimiento")
+def agregar_conocimiento_ruta(categoria: str, titulo: str, contenido: str):
+    agregar_conocimiento(categoria, titulo, contenido)
+    return {"status": "agregado", "titulo": titulo}
+
+@app.get("/conocimiento/buscar")
+def buscar_ruta(consulta: str):
+    resultados = buscar_conocimiento(consulta)
+    return resultados
