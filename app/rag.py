@@ -42,12 +42,13 @@ def agregar_conocimiento(categoria: str, titulo: str, contenido: str):
 
 def buscar_conocimiento(consulta: str, limite: int = 3) -> list:
     embedding = get_embedding(consulta)
+    embedding_str = str(embedding)
     with engine.connect() as conn:
         resultado = conn.execute(text("""
             SELECT titulo, contenido, categoria,
-            1 - (embedding <=> :embedding::vector) as similitud
+            1 - (embedding <=> CAST(:embedding AS vector)) as similitud
             FROM conocimiento
-            ORDER BY embedding <=> :embedding::vector
+            ORDER BY embedding <=> CAST(:embedding AS vector)
             LIMIT :limite
-        """), {"embedding": str(embedding), "limite": limite})
+        """), {"embedding": embedding_str, "limite": limite})
         return [{"titulo": r.titulo, "contenido": r.contenido, "categoria": r.categoria, "similitud": float(r.similitud)} for r in resultado]
