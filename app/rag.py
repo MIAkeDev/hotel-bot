@@ -1,16 +1,17 @@
-from groq import Groq
+import cohere
 from sqlalchemy import text
 from app.database import engine
-from app.config import GROQ_API_KEY
+from app.config import COHERE_API_KEY
 
-client = Groq(api_key=GROQ_API_KEY)
+client = cohere.Client(api_key=COHERE_API_KEY)
 
 def get_embedding(texto: str) -> list:
-    response = client.embeddings.create(
-        model="nomic-embed-text-v1_5",
-        input=texto
+    response = client.embed(
+        texts=[texto],
+        model="embed-multilingual-light-v3.0",
+        input_type="search_query"
     )
-    return response.data[0].embedding
+    return response.embeddings[0]
 
 def init_rag():
     with engine.connect() as conn:
@@ -19,8 +20,8 @@ def init_rag():
                 id SERIAL PRIMARY KEY,
                 categoria VARCHAR(50),
                 titulo VARCHAR(200),
-                contenido TEXT,
-                embedding vector(768)
+                embedding vector(384),
+                contenido TEXT
             )
         """))
         conn.commit()
