@@ -8,6 +8,8 @@ import httpx
 from datetime import datetime
 import langdetect
 from app.rag import init_rag, agregar_conocimiento, buscar_conocimiento
+from app.admin import router as admin_router
+app.include_router(admin_router)
 
 app = FastAPI(title="Hotel Sunrise - Bot")
 

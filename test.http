@@ -36,3 +36,8 @@ Content-Type: application/json
     "session_id": "huesped_externo",
     "message": "Hola, ¿cuánto cuesta la habitación doble?"
 }
+
+### Agregar ceviche al RAG
+POST https://web-production-0fc97.up.railway.app/conocimiento?categoria=carta&titulo=Ceviche%20clasico&contenido=Pescado%20fresco%20marinado%20en%20limon,%20cebolla%20morada,%20aji%20limo.%20Precio%20S/%2035.%20Sin%20gluten.
+### Buscar en RAG
+GET https://web-production-0fc97.up.railway.app/conocimiento/buscar?consulta=algo sin gluten
