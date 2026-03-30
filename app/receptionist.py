@@ -480,6 +480,7 @@ def panel_recepcionista():
                         <div class="chat-header-sub" id="activeSub">—</div>
                     </div>
                     <div class="chat-header-actions">
+                        <button class="btn-action" id="btnModo" onclick="toggleModo()">🤖 Tomar control</button>
                         <button class="btn-action" onclick="recargarChat()">🔄 Actualizar</button>
                     </div>
                 </div>
@@ -540,8 +541,35 @@ def panel_recepcionista():
 
             if (autoRefresh) clearInterval(autoRefresh);
             autoRefresh = setInterval(() => cargarMensajes(telefono), 10000);
+            modoManual = false;
+            actualizarBotonModo();
         }
+    let modoManual = false;
 
+    function actualizarBotonModo() {
+        const btn = document.getElementById('btnModo');
+        if (modoManual) {
+            btn.innerHTML = '🟢 Devolver al bot';
+            btn.style.background = '#f59e0b';
+            btn.style.color = '#1a1a1a';
+        } else {
+            btn.innerHTML = '🤖 Tomar control';
+            btn.style.background = '';
+            btn.style.color = '';
+        }
+    }
+
+    async function toggleModo() {
+        if (!currentPhone) return;
+        if (modoManual) {
+            await fetch('/api/modo-manual/' + currentPhone, { method: 'DELETE' });
+            modoManual = false;
+        } else {
+            await fetch('/api/modo-manual/' + currentPhone, { method: 'POST' });
+            modoManual = true;
+        }
+        actualizarBotonModo();
+}
         async function cargarMensajes(telefono) {
             const res = await fetch('/api/mensajes/' + telefono);
             const mensajes = await res.json();
@@ -617,6 +645,18 @@ def api_chats():
 def api_mensajes(telefono: str):
     from app.database import obtener_mensajes_por_telefono
     return obtener_mensajes_por_telefono(telefono)
+
+@router.post("/api/modo-manual/{telefono}")
+def activar_manual(telefono: str):
+    from app.database import activar_modo_manual
+    activar_modo_manual(telefono)
+    return {"status": "manual", "telefono": telefono}
+
+@router.delete("/api/modo-manual/{telefono}")
+def desactivar_manual(telefono: str):
+    from app.database import desactivar_modo_manual
+    desactivar_modo_manual(telefono)
+    return {"status": "bot", "telefono": telefono}
 
 @router.post("/api/enviar")
 async def api_enviar(data: dict):

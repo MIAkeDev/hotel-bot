@@ -3,7 +3,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from app.bot import chat
 from app.config import WHATSAPP_TOKEN, VERIFY_TOKEN, RECEPTIONIST_NUMBER
-from app.database import init_db, guardar_conversacion
+from app.database import init_db, guardar_conversacion, esta_en_modo_manual
 import httpx
 from datetime import datetime
 import langdetect
@@ -15,11 +15,12 @@ app = FastAPI(title="Hotel Sunrise - Bot")
 app.include_router(admin_router)
 app.include_router(receptionist_router)
 
-
 @app.on_event("startup")
 def startup():
     init_db()
     init_rag()
+    from app.database import Base, engine
+    Base.metadata.create_all(bind=engine)
 
 class MessageRequest(BaseModel):
     session_id: str
@@ -90,13 +91,17 @@ async def receive_message(request: Request):
         hora = datetime.now().strftime("%I:%M %p")
 
         try:
-            idioma = langdetect.detect(text) 
+            idioma = langdetect.detect(text)
         except:
             idioma = "desconocido"
 
         print(f"TELEFONO: {phone}")
         print(f"IDIOMA: {idioma}")
         print(f"MENSAJE: {text}")
+
+        if esta_en_modo_manual(phone):
+            print(f"MODO MANUAL ACTIVO para {phone} — bot pausado")
+            return {"status": "ok"}
 
         resultados_rag = buscar_conocimiento(text)
         contexto_rag = ""
@@ -107,12 +112,13 @@ async def receive_message(request: Request):
             ])
 
         reply = chat(session_id=phone, message=text, contexto_rag=contexto_rag)
+        print(f"RESPUESTA BOT: {reply}")
+
         fue_handoff = "##HANDOFF##" in reply
 
         if fue_handoff:
             reply_clean = reply.replace("##HANDOFF##", "").strip()
             await send_whatsapp(phone_id, phone, reply_clean)
-
             notificacion = (
                 f"🔔 PEDIDO NUEVO\n"
                 f"👤 Huésped: +{phone}\n"
@@ -136,6 +142,9 @@ async def receive_message(request: Request):
 
     except Exception as e:
         print(f"ERROR: {e}")
+
+    return {"status": "ok"}
+
 @app.get("/conversaciones")
 def ver_conversaciones():
     from app.database import SessionLocal, Conversacion
@@ -156,6 +165,7 @@ def ver_conversaciones():
         ]
     finally:
         db.close()
+
 @app.get("/dashboard")
 def dashboard():
     from app.database import SessionLocal, Conversacion
@@ -192,7 +202,6 @@ def dashboard():
         </head>
         <body>
             <h1>🏨 Hotel Sunrise — Dashboard</h1>
-
             <div class="cards">
                 <div class="card">
                     <h2>{total}</h2>
@@ -211,12 +220,10 @@ def dashboard():
                     <p>Tasa de resolución automática</p>
                 </div>
             </div>
-
             <h2>Idiomas detectados</h2>
             <div class="cards">
                 {"".join(f'<div class="card"><h2>{c}</h2><p>{i}</p></div>' for i, c in idiomas)}
             </div>
-
             <h2>Últimas conversaciones</h2>
             <table>
                 <tr>
@@ -248,10 +255,11 @@ def dashboard():
         </body>
         </html>
         """
-        return __import__('fastapi').responses.HTMLResponse(content=html)
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=html)
     finally:
         db.close()
-    return {"status": "ok"}
+
 @app.post("/conocimiento")
 def agregar_conocimiento_ruta(categoria: str, titulo: str, contenido: str):
     agregar_conocimiento(categoria, titulo, contenido)

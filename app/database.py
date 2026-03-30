@@ -74,3 +74,37 @@ def obtener_mensajes_por_telefono(telefono: str):
         ]
     finally:
         db.close()
+
+class ModoManual(Base):
+    __tablename__ = "modo_manual"
+    telefono = Column(String, primary_key=True)
+    activo = Column(Boolean, default=True)
+    fecha = Column(DateTime, default=datetime.now)
+
+def esta_en_modo_manual(telefono: str) -> bool:
+    db = SessionLocal()
+    try:
+        registro = db.query(ModoManual).filter(ModoManual.telefono == telefono).first()
+        return registro is not None and registro.activo
+    finally:
+        db.close()
+
+def activar_modo_manual(telefono: str):
+    db = SessionLocal()
+    try:
+        registro = db.query(ModoManual).filter(ModoManual.telefono == telefono).first()
+        if registro:
+            registro.activo = True
+        else:
+            db.add(ModoManual(telefono=telefono, activo=True))
+        db.commit()
+    finally:
+        db.close()
+
+def desactivar_modo_manual(telefono: str):
+    db = SessionLocal()
+    try:
+        db.query(ModoManual).filter(ModoManual.telefono == telefono).delete()
+        db.commit()
+    finally:
+        db.close()
