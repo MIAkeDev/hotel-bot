@@ -41,3 +41,36 @@ def guardar_conversacion(telefono, idioma, mensaje, respuesta, fue_handoff):
         db.rollback()
     finally:
         db.close()
+
+def obtener_chats():
+    db = SessionLocal()
+    try:
+        from sqlalchemy import func
+        ultimos = db.query(
+            Conversacion.telefono,
+            func.max(Conversacion.fecha).label("ultima_fecha"),
+            func.count(Conversacion.id).label("total_mensajes")
+        ).group_by(Conversacion.telefono).order_by(func.max(Conversacion.fecha).desc()).all()
+        return [{"telefono": r.telefono, "ultima_fecha": str(r.ultima_fecha), "total_mensajes": r.total_mensajes} for r in ultimos]
+    finally:
+        db.close()
+
+def obtener_mensajes_por_telefono(telefono: str):
+    db = SessionLocal()
+    try:
+        mensajes = db.query(Conversacion).filter(
+            Conversacion.telefono == telefono
+        ).order_by(Conversacion.fecha.asc()).all()
+        return [
+            {
+                "id": m.id,
+                "mensaje": m.mensaje,
+                "respuesta": m.respuesta,
+                "fue_handoff": m.fue_handoff,
+                "idioma": m.idioma,
+                "fecha": str(m.fecha)
+            }
+            for m in mensajes
+        ]
+    finally:
+        db.close()
