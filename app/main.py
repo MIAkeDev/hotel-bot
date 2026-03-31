@@ -101,6 +101,13 @@ async def receive_message(request: Request):
 
         if esta_en_modo_manual(phone):
             print(f"MODO MANUAL ACTIVO para {phone} — bot pausado")
+            guardar_conversacion(
+                telefono=phone,
+                idioma=idioma,
+                mensaje=text,
+                respuesta="[Atendido por recepcionista]",
+                fue_handoff=False
+            )
             return {"status": "ok"}
 
         resultados_rag = buscar_conocimiento(text)
