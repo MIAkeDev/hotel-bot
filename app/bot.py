@@ -1,5 +1,6 @@
 from groq import Groq
 from app.config import GROQ_API_KEY
+from app.database import obtener_mensajes_por_telefono # Importamos tu función existente
 
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -23,41 +24,30 @@ no mientas con informacion que no sabes, solo responde segun lo que tendas del R
 un interes de conversacion, eres un experto atendiendo y cerrando reservacion o ventas
 """
 
-
-sessions: dict[str, list] = {}
-idiomas: dict[str, str] = {}
-
 def chat(session_id: str, message: str, contexto_rag: str = "") -> str:
-    if session_id not in sessions:
-        sessions[session_id] = []
+    # 1. Recuperar el historial desde Supabase
+    historial_db = obtener_mensajes_por_telefono(session_id)
+    
+    # 2. Construir los mensajes para Groq
+    messages_formateados = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    # Tomamos solo los últimos 6 mensajes para no gastar demasiados tokens
+    for msg in historial_db[-6:]:
+        messages_formateados.append({"role": "user", "content": msg["mensaje"]})
+        if msg["respuesta"]:
+            messages_formateados.append({"role": "assistant", "content": msg["respuesta"].replace("##HANDOFF##", "")})
 
+    # 3. Preparar el mensaje actual (con RAG si existe)
     prompt_con_contexto = message
     if contexto_rag:
-        prompt_con_contexto = f"""El huésped pregunta: {message}
+        prompt_con_contexto = f"El huésped pregunta: {message}\n\nInformación relevante encontrada:\n{contexto_rag}\n\nUsa esta información para responder."
 
-Información relevante encontrada:
-{contexto_rag}
+    messages_formateados.append({"role": "user", "content": prompt_con_contexto})
 
-Usa esta información para responder."""
-
-    sessions[session_id].append({
-        "role": "user",
-        "content": prompt_con_contexto
-    })
-
+    # 4. Llamada a Groq
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            *sessions[session_id]
-        ]
+        messages=messages_formateados
     )
 
-    reply = response.choices[0].message.content
-
-    sessions[session_id].append({
-        "role": "assistant",
-        "content": reply
-    })
-
-    return reply
+    return response.choices[0].message.content

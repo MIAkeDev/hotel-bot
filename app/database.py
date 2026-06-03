@@ -2,11 +2,16 @@ import os
 from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Integer, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 from datetime import datetime
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(DATABASE_URL)
+# <-- MODIFICAR ESTA LÍNEA
+engine = create_engine(
+    DATABASE_URL,
+    poolclass=NullPool # Importante para Vercel + Supabase Pooler
+) 
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
